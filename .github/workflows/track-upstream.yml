@@ -1,0 +1,54 @@
+name: track-upstream
+
+# Weekly: fast-forward the `upstream-main` mirror to get-convex/better-auth
+# and open (or update) an issue when upstream has commits this fork's `main`
+# does not carry. That is the signal to rebase `patch/better-auth-1.7`, or to
+# retire the fork once upstream ships Better Auth 1.7 support itself.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Fast-forward upstream-main
+        run: |
+          git remote add upstream https://github.com/get-convex/better-auth.git
+          git fetch upstream main
+          git push origin refs/remotes/upstream/main:refs/heads/upstream-main
+
+      - name: Report drift
+        id: drift
+        run: |
+          behind=$(git rev-list --count refs/remotes/upstream/main ^origin/main)
+          ahead=$(git rev-list --count origin/main ^refs/remotes/upstream/main)
+          echo "behind=$behind" >> "$GITHUB_OUTPUT"
+          echo "ahead=$ahead" >> "$GITHUB_OUTPUT"
+          echo "main is $ahead ahead of and $behind behind get-convex/better-auth main"
+
+      - name: Open an issue when upstream moved
+        if: steps.drift.outputs.behind != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEHIND: ${{ steps.drift.outputs.behind }}
+          AHEAD: ${{ steps.drift.outputs.ahead }}
+        run: |
+          title="Upstream moved: main is $BEHIND commit(s) behind get-convex/better-auth"
+          body="Rebase patch/better-auth-1.7 onto upstream-main, or retire the fork if upstream now supports Better Auth 1.7. main is $AHEAD ahead, $BEHIND behind."
+          existing=$(gh issue list --search "Upstream moved in:title" --state open --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            gh issue edit "$existing" --title "$title" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi
