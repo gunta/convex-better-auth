@@ -1,3 +1,12 @@
+> **Fork notice (gunta/convex-better-auth).** This is a maintained fork of
+> [get-convex/better-auth](https://github.com/get-convex/better-auth) that carries
+> [PR #430](https://github.com/get-convex/better-auth/pull/430), the migration of the
+> Convex adapter to Better Auth 1.7, until upstream ships it. Branches: `upstream-main`
+> (mirror), `patch/better-auth-1.7` (the PR, rebased), `main` (integration), and
+> `release-1.7` (machine-built, `dist/` committed). Install it with
+> `"@convex-dev/better-auth": "github:gunta/convex-better-auth#release-1.7"`.
+> Retire this fork as soon as a published @convex-dev/better-auth admits better-auth 1.7.
+
 # Convex + Better Auth
 
 <!-- START: Include on https://convex.dev/components -->
