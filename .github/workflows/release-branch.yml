@@ -1,0 +1,63 @@
+name: release-branch
+
+# Rebuilds the machine-owned `release-1.7` branch from `main` on every push.
+# `release-1.7` is `main` plus one commit that adds the built `dist/`, so a
+# consumer can install the package straight from git without running any
+# lifecycle script:
+#
+#   "@convex-dev/better-auth": "github:gunta/convex-better-auth#release-1.7"
+#
+# Never commit to `release-1.7` by hand; it is force-pushed on every run.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-1.7
+  cancel-in-progress: true
+
+jobs:
+  build-and-publish-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - run: npm run test
+
+      # Typecheck and lint cover the example apps too; report them without
+      # blocking the release branch on an unrelated example failure.
+      - run: npm run typecheck
+        continue-on-error: true
+      - run: npm run lint
+        continue-on-error: true
+
+      - name: Verify dist payload
+        run: |
+          test -f dist/component/convex.config.js
+          test -f dist/component/migrations.js
+          test -f dist/client/index.js
+
+      - name: Force-push release-1.7 with dist committed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch --force-create release-1.7
+          git add --force dist
+          git commit --message "build: dist for ${GITHUB_SHA}" --allow-empty
+          git push --force origin release-1.7
